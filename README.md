@@ -1,13 +1,37 @@
 # Workshop Registration Service
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-workshop--registration.vercel.app-brightgreen?style=for-the-badge&logo=vercel)](https://workshop-registration.vercel.app/)
+
+> 🌐 **Live Application:** [https://workshop-registration.vercel.app/](https://workshop-registration.vercel.app/)
+
 A web application designed for a community training centre (three locations, about 15 staff members) to manage workshops and handle attendee registrations **without ever overbooking**. It replaces cumbersome shared spreadsheets and phone bookings with a reliable, role-enforced service.
 
 **Tech Stack:**
 - **Framework:** Next.js 16 (App Router, Webpack)
 - **UI & Styling:** React 19, Tailwind CSS v4 (with PostCSS)
-- **Database & ORM:** PostgreSQL 16 (Docker), Prisma 5
+- **Database & ORM:** PostgreSQL 16 (Docker / Neon Serverless), Prisma 5
 - **Validation & Auth:** Zod, Jose (JWT session cookies), bcryptjs
 - **Language:** TypeScript 5
+
+---
+
+## Screenshots
+
+### 1. Workshops Dashboard
+Overview of active, upcoming, and past workshops with real-time remaining seat counts, status badges, and date/seat filters.
+![Workshops Dashboard](screenshots/workshops-dashboard.png)
+
+### 2. Workshop Details & Registrations
+Detailed workshop view with attendee rosters, active vs. cancelled participant breakdown, registration logs, and seat management.
+![Workshop Details and Registrations](screenshots/workshop-details.png)
+
+### 3. Create Workshop
+Manager interface to schedule new workshops across locations, set seat capacity, specify duration, and manage drafts.
+![Create New Workshop](screenshots/create-workshop.png)
+
+### 4. Team & Account Management
+Admin view for creating and managing staff accounts, assigning roles (`Admin`, `Manager`, `Staff`), and safely deactivating accounts.
+![Team Accounts Management](screenshots/team-management.png)
 
 ---
 

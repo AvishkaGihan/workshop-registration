@@ -1,6 +1,8 @@
 # Setup Guide - Workshop Registration Service
 
-This document provides step-by-step instructions for getting the **Workshop Registration Service** up and running on your local machine.
+> 🌐 **Live Application:** [https://workshop-registration.vercel.app/](https://workshop-registration.vercel.app/)
+
+This document provides step-by-step instructions for getting the **Workshop Registration Service** up and running on your local machine, as well as deploying to production.
 
 ---
 
