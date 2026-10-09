@@ -6,7 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:up": "docker compose up -d",
+    "db:migrate": "prisma migrate dev",
+    "db:reset": "prisma migrate reset --force",
+    "seed": "prisma db seed",
+    "test:permissions": "tsx scripts/permissions-test.ts",
+    "test:concurrency": "tsx scripts/concurrency-test.ts",
+    "test:rules": "tsx scripts/rules-test.ts",
+    "test:all": "npm run test:permissions && npm run test:concurrency && npm run test:rules"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

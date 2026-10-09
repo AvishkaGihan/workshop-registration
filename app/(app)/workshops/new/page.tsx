@@ -10,7 +10,7 @@ export default async function NewWorkshopPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1>New workshop</h1>
-        <p className="text-muted">Save it as a draft first if you're not ready to open registration.</p>
+        <p className="text-muted">Save it as a draft first if you&apos;re not ready to open registration.</p>
       </div>
       <WorkshopForm />
     </div>

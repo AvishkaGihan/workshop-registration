@@ -24,4 +24,4 @@ export function diffFields(before: object, after: object): Prisma.InputJsonObjec
     if (from !== to) changes[key] = { from, to };
   }
   return changes as Prisma.InputJsonObject;
-}s
+}

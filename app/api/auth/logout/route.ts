@@ -3,6 +3,6 @@ import { route } from "@/lib/http";
 import { destroySession } from "@/lib/auth";
 
 export const POST = route(async () => {
-  destroySession();
+  await destroySession();
   return NextResponse.json({ ok: true });
 });

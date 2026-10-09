@@ -40,7 +40,8 @@ export async function createSession(userId: string) {
     .setExpirationTime(`${SESSION_HOURS}h`)
     .sign(secretKey());
 
-  cookies().set(COOKIE_NAME, token, {
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -49,13 +50,15 @@ export async function createSession(userId: string) {
   });
 }
 
-export function destroySession() {
-  cookies().delete(COOKIE_NAME);
+export async function destroySession() {
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAME);
 }
 
 /** The signed-in, active user, or null. Always reads the latest role and status from the database. */
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const token = cookies().get(COOKIE_NAME)?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secretKey());
