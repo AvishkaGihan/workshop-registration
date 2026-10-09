@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Workshop Registration Service
 
-## Getting Started
+A small web app for a community training centre (three locations, about 15 staff) to manage workshops and take registrations **without ever overbooking**. It replaces a shared spreadsheet and phone bookings.
 
-First, run the development server:
+**Stack:** Next.js 14 (App Router, TypeScript), PostgreSQL, Prisma, Zod, Tailwind CSS.
+
+## Run it locally
+
+You need Node.js 20+ and Docker.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env        # then set SESSION_SECRET (see below)
+npm install
+docker compose up -d        # starts PostgreSQL
+npx prisma migrate deploy   # creates tables, constraints and indexes
+npx prisma generate
+npm run seed                # sample users and workshops
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Generate a session secret:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Set `NEXT_PUBLIC_CENTRE_TIMEZONE` in `.env` to the centre's time zone (for example `America/New_York`). All times are stored in UTC and shown in that zone.
 
-## Learn More
+## Sample logins (development only)
 
-To learn more about Next.js, take a look at the following resources:
+| Role    | Email               | Password     |
+| ------- | ------------------- | ------------ |
+| Admin   | admin@example.com   | Workshop123! |
+| Manager | manager@example.com | Workshop123! |
+| Staff   | staff@example.com   | Workshop123! |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The seed also creates eight workshops across three locations (open, draft, completed, cancelled, one almost full, one full) and a few registrations, including a cancelled one.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Who can do what (enforced by the API)
 
-## Deploy on Vercel
+| Action                                    | Admin | Manager | Staff |
+| ----------------------------------------- | ----- | ------- | ----- |
+| Create users, set roles, deactivate users | Yes   | No      | No    |
+| Create and edit workshops                 | No    | Yes     | No    |
+| Register and cancel attendees             | No    | Yes     | Yes   |
+| View workshops, registrations and history | No    | Yes     | Yes   |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Anything else returns 403. Signed-out requests return 401.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tests
+
+Start `npm run dev` in one terminal, then in another:
+
+```bash
+npm run test:permissions   # role matrix, 401 and 403 on every route
+npm run test:concurrency   # 20 parallel registrations for 5 seats: exactly 5 succeed, 15 get 409
+npm run test:rules         # duplicates, re-registering, history, capacity, filters
+npm run test:all
+```
+
+`npm run db:reset` returns the database to clean seed data.
+
+## How overbooking is prevented
+
+Registering runs in one transaction. First a single conditional `UPDATE` claims a seat:
+
+```sql
+UPDATE workshops SET active_count = active_count + 1
+WHERE id = $1 AND status = 'open' AND active_count < capacity
+```
+
+If zero rows change, the workshop is full (or not open) and the request gets a 409. Otherwise the registration row is inserted in the same transaction. Postgres serialises concurrent updates to the same row, so two requests can never both take the last seat. As a backstop, the database has `CHECK (active_count >= 0 AND active_count <= capacity)` and a partial unique index on `(workshop_id, lower(attendee_email)) WHERE status = 'active'`.
+
+Cancelling flips a row from `active` to `cancelled` only `WHERE status = 'active'`, and only then decrements the counter, so cancelling twice frees one seat.
+
+## Project layout
+
+- `app/api/...` thin route handlers (each starts with `requireRole`)
+- `lib/auth.ts` sessions and `requireRole`; `lib/registrations.ts` the transactional register and cancel logic
+- `lib/validation.ts` Zod schemas; `lib/workshops.ts` and `lib/users.ts` data functions
+- `prisma/schema.prisma`, `prisma/seed.ts`, `prisma/migrations`
+- `scripts/` the test scripts
