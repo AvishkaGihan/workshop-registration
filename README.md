@@ -1,82 +1,151 @@
 # Workshop Registration Service
 
-A small web app for a community training centre (three locations, about 15 staff) to manage workshops and take registrations **without ever overbooking**. It replaces a shared spreadsheet and phone bookings.
+A web application designed for a community training centre (three locations, about 15 staff members) to manage workshops and handle attendee registrations **without ever overbooking**. It replaces cumbersome shared spreadsheets and phone bookings with a reliable, role-enforced service.
 
-**Stack:** Next.js 14 (App Router, TypeScript), PostgreSQL, Prisma, Zod, Tailwind CSS.
+**Tech Stack:**
+- **Framework:** Next.js 16 (App Router, Webpack)
+- **UI & Styling:** React 19, Tailwind CSS v4 (with PostCSS)
+- **Database & ORM:** PostgreSQL 16 (Docker), Prisma 5
+- **Validation & Auth:** Zod, Jose (JWT session cookies), bcryptjs
+- **Language:** TypeScript 5
 
-## Run it locally
+---
 
-You need Node.js 20+ and Docker.
+## Quick Start
+
+For detailed installation steps and troubleshooting, see the [Setup Guide](SETUP.md).
+
+### Prerequisites
+- Node.js 20+
+- Docker & Docker Compose
+
+### 1-Minute Local Setup
 
 ```bash
-cp .env.example .env        # then set SESSION_SECRET (see below)
+# 1. Clone repository & install dependencies
+git clone https://github.com/AvishkaGihan/workshop-registration.git
+cd workshop-registration
 npm install
-docker compose up -d        # starts PostgreSQL
-npx prisma migrate deploy   # creates tables, constraints and indexes
+
+# 2. Configure environment
+cp .env.example .env        # Generate & set SESSION_SECRET (see below)
+
+# 3. Start database & apply migrations
+npm run db:up               # starts PostgreSQL in Docker
+npm run db:migrate          # creates tables, constraints & indexes
 npx prisma generate
-npm run seed                # sample users and workshops
+npm run seed                # seeds sample users & workshops
+
+# 4. Run development server
 npm run dev                 # http://localhost:3000
 ```
 
 Generate a session secret:
-
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-Set `NEXT_PUBLIC_CENTRE_TIMEZONE` in `.env` to the centre's time zone (for example `America/New_York`). All times are stored in UTC and shown in that zone.
+Configure `NEXT_PUBLIC_CENTRE_TIMEZONE` in `.env` to the centre's time zone (e.g. `Europe/London` or `America/New_York`). All timestamps are stored in UTC and displayed in this configured zone.
 
-## Sample logins (development only)
+---
 
-| Role    | Email               | Password     |
-| ------- | ------------------- | ------------ |
-| Admin   | admin@example.com   | Workshop123! |
-| Manager | manager@example.com | Workshop123! |
-| Staff   | staff@example.com   | Workshop123! |
+## Sample Accounts (Development)
 
-The seed also creates eight workshops across three locations (open, draft, completed, cancelled, one almost full, one full) and a few registrations, including a cancelled one.
+| Role | Email | Password | Default Scope |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `admin@example.com` | `Workshop123!` | User management, role assignment, deactivation |
+| **Manager** | `manager@example.com` | `Workshop123!` | Workshop creation & editing, attendee management |
+| **Staff** | `staff@example.com` | `Workshop123!` | Register attendees, process cancellations |
 
-## Who can do what (enforced by the API)
+The database seed also provisions sample workshops across multiple locations with diverse states (open, draft, completed, cancelled, near capacity, and sold out) alongside test registrations.
 
-| Action                                    | Admin | Manager | Staff |
-| ----------------------------------------- | ----- | ------- | ----- |
-| Create users, set roles, deactivate users | Yes   | No      | No    |
-| Create and edit workshops                 | No    | Yes     | No    |
-| Register and cancel attendees             | No    | Yes     | Yes   |
-| View workshops, registrations and history | No    | Yes     | Yes   |
+---
 
-Anything else returns 403. Signed-out requests return 401.
+## Role Permissions (Enforced by API)
 
-## Tests
+| Action | Admin | Manager | Staff |
+| :--- | :---: | :---: | :---: |
+| Create users, set roles, deactivate accounts | ✅ | ❌ | ❌ |
+| Create and edit workshops | ❌ | ✅ | ❌ |
+| Register and cancel attendees | ❌ | ✅ | ✅ |
+| View workshops, registrations, and history | ❌ | ✅ | ✅ |
 
-Start `npm run dev` in one terminal, then in another:
+- Unauthorized requests without valid credentials return `401 Unauthorized`.
+- Actions forbidden for a role return `403 Forbidden`.
 
-```bash
-npm run test:permissions   # role matrix, 401 and 403 on every route
-npm run test:concurrency   # 20 parallel registrations for 5 seats: exactly 5 succeed, 15 get 409
-npm run test:rules         # duplicates, re-registering, history, capacity, filters
-npm run test:all
-```
+---
 
-`npm run db:reset` returns the database to clean seed data.
+## How Overbooking is Prevented
 
-## How overbooking is prevented
-
-Registering runs in one transaction. First a single conditional `UPDATE` claims a seat:
+Registrations are executed within an atomic database transaction. Seat reservation relies on a conditional `UPDATE`:
 
 ```sql
-UPDATE workshops SET active_count = active_count + 1
-WHERE id = $1 AND status = 'open' AND active_count < capacity
+UPDATE workshops
+SET active_count = active_count + 1
+WHERE id = $1 AND status = 'open' AND active_count < capacity;
 ```
 
-If zero rows change, the workshop is full (or not open) and the request gets a 409. Otherwise the registration row is inserted in the same transaction. Postgres serialises concurrent updates to the same row, so two requests can never both take the last seat. As a backstop, the database has `CHECK (active_count >= 0 AND active_count <= capacity)` and a partial unique index on `(workshop_id, lower(attendee_email)) WHERE status = 'active'`.
+1. **Atomic seat reservation**: If `0` rows are modified, the workshop is either full or not open; the API immediately returns `409 Conflict`.
+2. **Row-level serialisation**: PostgreSQL serialises concurrent updates on the same row, preventing race conditions even under high concurrency.
+3. **Database-level constraints**:
+   - `CHECK (active_count >= 0 AND active_count <= capacity)` guarantees active count cannot exceed capacity.
+   - Partial unique index on `(workshop_id, lower(attendee_email)) WHERE status = 'active'` prevents duplicate active registrations for the same person.
+4. **Idempotent cancellations**: Cancelling updates status from `active` to `cancelled` only `WHERE status = 'active'`, and decrements `active_count` only once.
 
-Cancelling flips a row from `active` to `cancelled` only `WHERE status = 'active'`, and only then decrements the counter, so cancelling twice frees one seat.
+---
 
-## Project layout
+## Running Tests
 
-- `app/api/...` thin route handlers (each starts with `requireRole`)
-- `lib/auth.ts` sessions and `requireRole`; `lib/registrations.ts` the transactional register and cancel logic
-- `lib/validation.ts` Zod schemas; `lib/workshops.ts` and `lib/users.ts` data functions
-- `prisma/schema.prisma`, `prisma/seed.ts`, `prisma/migrations`
-- `scripts/` the test scripts
+Start `npm run dev` in one terminal, then run the test suites in another:
+
+```bash
+# Run all tests sequentially
+npm run test:all
+
+# Individual suites:
+npm run test:permissions   # Role matrix, 401 and 403 on every route
+npm run test:concurrency   # 20 parallel registrations for 5 seats (exactly 5 succeed, 15 get 409)
+npm run test:rules         # Duplicate emails, re-registration after cancel, history, filters
+```
+
+To reset the database back to clean seed data at any time:
+```bash
+npm run db:reset
+```
+
+Type checking and linting:
+```bash
+npm run lint               # ESLint
+npx tsc --noEmit           # TypeScript compiler check
+```
+
+---
+
+## Project Structure
+
+```text
+├── app/
+│   ├── (app)/             # Authenticated application views (workshops, users)
+│   ├── (auth)/            # Login & authentication routes
+│   └── api/               # Thin route handlers protected by requireRole
+├── components/            # Reusable UI components & layouts
+├── lib/
+│   ├── auth.ts            # Session cookies, JWT verification, requireRole
+│   ├── registrations.ts   # Transactional register & cancel seat logic
+│   ├── workshops.ts       # Workshop data access & filtering
+│   ├── users.ts           # User management data functions
+│   └── validation.ts      # Zod validation schemas
+├── prisma/
+│   ├── schema.prisma      # PostgreSQL database schema & constraints
+│   ├── migrations/        # SQL migration files
+│   └── seed.ts            # Seed script for users & workshops
+├── scripts/               # Automated test scripts (concurrency, permissions, rules)
+├── SETUP.md               # Detailed setup & troubleshooting guide
+└── docker-compose.yml     # PostgreSQL container configuration
+```
+
+---
+
+## License
+
+Private / Internal use for community training centre.

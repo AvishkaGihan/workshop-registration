@@ -2,6 +2,10 @@
   "name": "workshop-registration",
   "version": "0.1.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AvishkaGihan/workshop-registration.git"
+  },
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
