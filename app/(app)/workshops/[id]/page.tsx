@@ -16,17 +16,20 @@ export default async function WorkshopPage({
   params,
   searchParams,
 }: {
-  params: { id: string };
-  searchParams: { tab?: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { user, allowed } = await requirePage(["manager", "staff"]);
   if (!allowed) return <NoAccess />;
 
-  const workshop = await getWorkshop(params.id);
+  const { id } = await params;
+  const { tab: queryTab } = await searchParams;
+
+  const workshop = await getWorkshop(id);
   if (!workshop) notFound();
 
   const registrations = await listRegistrations(workshop.id);
-  const tab = searchParams.tab === "history" ? "history" : "registrations";
+  const tab = queryTab === "history" ? "history" : "registrations";
 
   return (
     <div className="space-y-6">

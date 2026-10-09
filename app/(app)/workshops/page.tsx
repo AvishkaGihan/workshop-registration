@@ -9,12 +9,13 @@ import { WorkshopCard } from "@/components/WorkshopCard";
 export default async function WorkshopsPage({
   searchParams,
 }: {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { user, allowed } = await requirePage(["manager", "staff"]);
   if (!allowed) return <NoAccess />;
 
-  const filters = parseWorkshopFilters(searchParams);
+  const resolvedSearchParams = await searchParams;
+  const filters = parseWorkshopFilters(resolvedSearchParams);
   const workshops = await listWorkshops(filters);
   const filtered = Boolean(filters.from || filters.to || filters.status || filters.hasSeats);
 

@@ -11,15 +11,17 @@ export class ApiError extends Error {
   }
 }
 
-type Ctx<P> = { params: P };
+type HandlerCtx<P> = { params: P };
+type NextCtx<P> = { params: Promise<P> };
 
 /** Wrap a route handler so thrown errors become clean JSON responses. */
 export function route<
   P extends Record<string, string> = Record<string, string>,
->(handler: (req: NextRequest, ctx: Ctx<P>) => Promise<Response>) {
-  return async (req: NextRequest, ctx: Ctx<P>): Promise<Response> => {
+>(handler: (req: NextRequest, ctx: HandlerCtx<P>) => Promise<Response>) {
+  return async (req: NextRequest, ctx: NextCtx<P>): Promise<Response> => {
     try {
-      return await handler(req, ctx);
+      const resolvedParams = (await ctx?.params) ?? ({} as P);
+      return await handler(req, { params: resolvedParams });
     } catch (err) {
       if (err instanceof ApiError) {
         return NextResponse.json(

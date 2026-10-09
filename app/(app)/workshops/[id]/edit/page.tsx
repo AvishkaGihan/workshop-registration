@@ -4,11 +4,16 @@ import { getWorkshop } from "@/lib/workshops";
 import { NoAccess } from "@/components/NoAccess";
 import { WorkshopForm } from "@/components/WorkshopForm";
 
-export default async function EditWorkshopPage({ params }: { params: { id: string } }) {
+export default async function EditWorkshopPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
   const { allowed } = await requirePage(["manager"]);
   if (!allowed) return <NoAccess />;
 
-  const workshop = await getWorkshop(params.id);
+  const workshop = await getWorkshop(id);
   if (!workshop) notFound();
 
   return (

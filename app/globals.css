@@ -71,14 +71,16 @@
   .card {
     @apply rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6;
   }
-  .btn {
+  .btn,
+  .btn-primary,
+  .btn-quiet {
     @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-base font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-primary {
-    @apply btn bg-sage text-white hover:bg-sage-dark;
+    @apply bg-sage text-white hover:bg-sage-dark;
   }
   .btn-quiet {
-    @apply btn border border-line bg-white text-ink hover:bg-cream;
+    @apply border border-line bg-white text-ink hover:bg-cream;
   }
   .input {
     @apply min-h-[44px] w-full rounded-xl border border-line bg-white px-3 py-2 text-base text-ink placeholder:text-muted;
