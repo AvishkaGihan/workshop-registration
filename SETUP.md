@@ -19,6 +19,7 @@ This document provides step-by-step instructions for getting the **Workshop Regi
 5. [Running Tests](#5-running-tests)
 6. [Available Scripts](#6-available-scripts)
 7. [Troubleshooting & Common Issues](#7-troubleshooting--common-issues)
+8. [Deploying to Vercel (with Neon PostgreSQL)](#8-deploying-to-vercel-with-neon-postgresql)
 
 ---
 
@@ -260,3 +261,85 @@ data-new-gr-c-s-check-loaded
 data-gr-ext-installed
 ```
 These are caused by browser extensions (such as Grammarly) injecting DOM attributes into `<body>` before React hydration finishes. The root layout has `suppressHydrationWarning` applied to prevent these third-party extension attributes from breaking page hydration.
+
+---
+
+## 8. Deploying to Vercel (with Neon PostgreSQL)
+
+This application is ready to deploy to **Vercel** with **Neon Serverless Postgres** via the Vercel Marketplace integration.
+
+### Step 1: Push Code to GitHub
+
+Ensure all changes (including `prisma/migrations/`, `prisma/schema.prisma`, `package.json`, and `lib/db.ts`) are committed:
+
+```bash
+git add -A
+git commit -m "Prepare for Vercel deployment"
+git push origin main
+```
+
+*(Verify that `.env` is never committed; it is excluded in `.gitignore`.)*
+
+### Step 2: Import Project into Vercel
+
+1. In your [Vercel Dashboard](https://vercel.com/dashboard), click **Add New → Project**.
+2. Select your repository (`AvishkaGihan/workshop-registration`).
+3. Ensure Framework is detected as **Next.js**.
+4. **Before deploying**, open **Build and Output Settings** and override the **Build Command** with:
+   ```bash
+   if [ "$VERCEL_ENV" = "production" ]; then npx prisma migrate deploy; fi && npm run build
+   ```
+   *(This ensures database migrations only run on production deployments.)*
+
+### Step 3: Add Neon PostgreSQL Storage
+
+1. Inside your Vercel project dashboard, navigate to the **Storage** tab.
+2. Choose **Neon Serverless Postgres** and click **Connect**.
+3. Select a region close to your users (and matching your Vercel functions).
+4. Connect it to your project for all environments.
+5. Vercel automatically injects:
+   - `DATABASE_URL` (pooled connection for runtime queries)
+   - `DATABASE_URL_UNPOOLED` (direct connection for Prisma migrations)
+
+### Step 4: Configure Production Environment Variables
+
+In **Settings → Environment Variables**, add the following production variables:
+
+| Variable | Value | Notes |
+| :--- | :--- | :--- |
+| `SESSION_SECRET` | A new random 32+ character string | Generate via: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
+| `NEXT_PUBLIC_CENTRE_TIMEZONE` | Your centre's IANA time zone | e.g. `Europe/London` or `America/New_York` (baked in at build time) |
+
+### Step 5: Deploy
+
+Click **Deploy** in Vercel.
+The build process will:
+1. Run `npm install` and the `postinstall` hook (`prisma generate`).
+2. Run database migrations via `npx prisma migrate deploy`.
+3. Compile the Next.js production build (`npm run build`).
+
+Once deployed, your application will be live at `https://<your-project>.vercel.app`.
+
+### Step 6: Seed the Production Database
+
+Since the production database is empty initially, seed it from your local machine using the unpooled connection string:
+
+1. Copy `DATABASE_URL_UNPOOLED` from **Vercel → Settings → Environment Variables** (or from the Neon console).
+2. Choose a strong production password for the accounts.
+
+**PowerShell (Windows):**
+```powershell
+$env:DATABASE_URL="<unpooled-url>"; $env:DATABASE_URL_UNPOOLED="<unpooled-url>"; $env:SEED_PASSWORD="<strong-password>"; npm run seed
+```
+
+**Bash (Linux / macOS):**
+```bash
+DATABASE_URL="<unpooled-url>" DATABASE_URL_UNPOOLED="<unpooled-url>" SEED_PASSWORD="<strong-password>" npm run seed
+```
+
+### Step 7: Verify Live Site
+
+1. Open your live Vercel URL and sign in as `admin@example.com` with the password you configured.
+2. Create real staff accounts and deactivate or update credentials for the sample accounts.
+3. Test permission access and workshop registration flows on the live deployment.
+
