@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -26,6 +27,7 @@
     "eslint-config-next": "16.4.0",
     "prisma": "5.22.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
